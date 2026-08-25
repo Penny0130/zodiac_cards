@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>長輩簡易生肖卡牌生成器 | 13張組圖製作</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 Global Build -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- html2canvas for card image download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        elderbg: '#181920',
+                        elderpanel: '#222533',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #121319;
+            color: #f1f5f9;
+            font-family: 'Noto Sans TC', sans-serif;
+            user-select: none;
+        }
+
+        /* Senior High Contrast Card Styles */
+        .card-aspect {
+            aspect-ratio: 1 / 1.4;
+        }
+
+        /* Color themes tailored for clear visual distinction */
+        .theme-red {
+            background: linear-gradient(135deg, #e11d48, #9f1239);
+            border-color: #fecdd3;
+        }
+        .theme-gold {
+            background: linear-gradient(135deg, #d97706, #78350f);
+            border-color: #fef3c7;
+        }
+        .theme-green {
+            background: linear-gradient(135deg, #059669, #064e3b);
+            border-color: #a7f3d0;
+        }
+        .theme-blue {
+            background: linear-gradient(135deg, #2563eb, #1e3a8a);
+            border-color: #bfdbfe;
+        }
+        .theme-purple {
+            background: linear-gradient(135deg, #9333ea, #581c87);
+            border-color: #e9d5ff;
+        }
+
+        /* Print styling rules for A4 */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+            .page-break {
+                page-break-after: always;
+                break-after: page;
+            }
+            .print-card-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                grid-template-rows: repeat(2, 1fr) !important;
+                gap: 16px !important;
+                height: 260mm;
+            }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e202e;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <div id="app" class="flex-grow flex flex-col">
+        
+        <!-- Header Bar -->
+        <header class="no-print bg-elderpanel border-b border-gray-700 px-4 py-3 sticky top-0 z-50 flex flex-wrap justify-between items-center shadow-md">
+            <div class="flex items-center space-x-3 my-1">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-black text-2xl shadow-md">
+                    <i class="fa-solid fa-paw"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-amber-400 tracking-wide">長輩簡易生肖卡牌生成器</h1>
+                    <p class="text-xs text-gray-300">大字體對角標註 · 每組 13 張 · 9張/頁(3x3)列印版</p>
+                </div>
+            </div>
+
+            <!-- Global Action Controls -->
+            <div class="flex flex-wrap items-center gap-3 my-1">
+                <!-- Set selector / adder -->
+                <div class="bg-slate-900 rounded-xl p-1.5 border border-amber-500/40 flex items-center space-x-2">
+                    <span class="text-xs text-amber-300 font-bold pl-1">
+                        <i class="fa-solid fa-layer-group mr-1"></i>組數設定:
+                    </span>
+                    <button @click="changeSetCount(-1)" class="w-8 h-8 bg-gray-800 hover:bg-gray-700 text-amber-400 rounded-lg flex items-center justify-center font-bold text-lg transition disabled:opacity-30" :disabled="sets.length <= 1">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <span class="text-base font-black text-white px-2">{{ sets.length }} 組 (共 {{ sets.length * 13 }} 張)</span>
+                    <button @click="changeSetCount(1)" class="w-8 h-8 bg-gray-800 hover:bg-gray-700 text-amber-400 rounded-lg flex items-center justify-center font-bold text-lg transition">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+
+                <!-- Print Page trigger -->
+                <button @click="triggerPrint" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2">
+                    <i class="fa-solid fa-print text-sm"></i>
+                    <span>預覽列印 A4</span>
+                </button>
+
+                <!-- Download PDF trigger -->
+                <button @click="downloadPDF" :disabled="isGeneratingPdf" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2 disabled:opacity-50">
+                    <i v-if="!isGeneratingPdf" class="fa-solid fa-file-pdf text-sm"></i>
+                    <i v-else class="fa-solid fa-spinner fa-spin text-sm"></i>
+                    <span>{{ isGeneratingPdf ? 'PDF 產生中...' : '下載卡牌 PDF' }}</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace Layout -->
+        <main class="no-print flex-grow grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 max-w-[1700px] w-full mx-auto">
+            
+            <!-- LEFT PANEL: Controls, Editing Form & Card Selection (5 Cols) -->
+            <section class="lg:col-span-5 bg-elderpanel rounded-2xl border border-gray-700 p-4 flex flex-col space-y-4 shadow-xl">
+                
+                <!-- Set Selector Tabs -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm font-black text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                            <i class="fa-solid fa-folder-tree"></i> 1. 選擇編輯卡組 (Set)
+                        </label>
+                        <span class="text-xs text-gray-300 font-bold">每組 13 張</span>
+                    </div>
+                    
+                    <div class="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                        <button v-for="(set, sIdx) in sets" :key="sIdx"
+                                @click="currentSetIndex = sIdx"
+                                :class="['px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1.5 border-2', 
+                                         currentSetIndex === sIdx 
+                                         ? 'bg-amber-500 text-slate-950 border-amber-300 shadow-md scale-105' 
+                                         : 'bg-slate-900 text-gray-300 border-gray-700 hover:bg-slate-800']">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                            第 {{ sIdx + 1 }} 組卡牌
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 13 Card Selector Grid inside Current Set -->
+                <div class="space-y-2 bg-slate-950/80 p-3 rounded-xl border border-gray-700">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-black text-gray-200">
+                            <i class="fa-solid fa-hand-pointer text-amber-400 mr-1"></i>2. 選擇第 {{ currentSetIndex + 1 }} 組中的卡片：
+                        </span>
+                        <span class="text-xs text-amber-300 font-bold">選取中: 第 {{ currentCardIndex + 1 }} 張</span>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1.5">
+                        <button v-for="cIdx in 13" :key="cIdx"
+                                @click="currentCardIndex = cIdx - 1"
+                                :class="['h-11 rounded-lg font-black transition flex flex-col items-center justify-center border-2 relative overflow-hidden',
+                                         currentCardIndex === (cIdx - 1)
+                                         ? 'bg-amber-400 text-slate-950 border-amber-200 shadow-md scale-105 ring-2 ring-amber-300'
+                                         : 'bg-slate-900 text-gray-300 border-gray-700 hover:border-amber-400']">
+                            <span class="text-xs font-extrabold">{{ cIdx }}</span>
+                            <span class="text-[10px] truncate max-w-[95%] font-bold">
+                                {{ currentSet[cIdx - 1]?.name || '卡片' }}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Card Editor Form -->
+                <div class="flex-grow overflow-y-auto custom-scrollbar pr-1 space-y-4" v-if="activeCard">
+                    <div class="flex items-center justify-between border-b border-gray-700 pb-2">
+                        <h2 class="text-sm font-black text-amber-300 flex items-center gap-2">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            3. 編輯卡牌 (組 {{ currentSetIndex + 1 }} - 卡牌 {{ currentCardIndex + 1 }}/13)
+                        </h2>
+                        
+                        <button @click="copyColorToSet" class="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold px-2.5 py-1 rounded-lg border border-amber-500/40 transition" title="將目前的邊框顏色同步給整組卡片">
+                            <i class="fa-solid fa-palette mr-1"></i>同組套用此顏色
+                        </button>
+                    </div>
+
+                    <!-- Input Fields -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-300 mb-1">
+                                <i class="fa-solid fa-font text-amber-400 mr-1"></i>生肖/角色文字 (左上與右下)
+                            </label>
+                            <input v-model="activeCard.name" type="text" maxlength="6" class="w-full bg-slate-900 border border-gray-600 rounded-xl px-3 py-2 text-base font-bold text-white focus:outline-none focus:border-amber-400">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-gray-300 mb-1">
+                                <i class="fa-solid fa-list-ol text-amber-400 mr-1"></i>卡牌數字 (右上與左下)
+                            </label>
+                            <input v-model.number="activeCard.number" type="number" min="1" max="99" class="w-full bg-slate-900 border border-gray-600 rounded-xl px-3 py-2 text-base font-bold text-white focus:outline-none focus:border-amber-400">
+                        </div>
+
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-gray-300 mb-1">卡框與主題顏色</label>
+                            <select v-model="activeCard.theme" class="w-full bg-slate-900 border border-gray-600 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-amber-400">
+                                <option value="red">吉祥紅 (Red)</option>
+                                <option value="gold">富貴金 (Gold)</option>
+                                <option value="green">翡翠綠 (Green)</option>
+                                <option value="blue">大海藍 (Blue)</option>
+                                <option value="purple">高雅紫 (Purple)</option>
+                            </select>
+                        </div>
+
+                        <!-- Image Upload section -->
+                        <div class="col-span-2 space-y-2">
+                            <label class="block text-xs font-bold text-gray-300">
+                                <i class="fa-solid fa-image text-amber-400 mr-1"></i>上傳圖片或更換圖檔
+                            </label>
+                            <div class="flex gap-2">
+                                <label class="flex-grow bg-slate-900 border-2 border-dashed border-gray-600 hover:border-amber-400 rounded-xl px-3 py-2.5 text-xs font-bold text-amber-300 cursor-pointer transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+                                    <span>點擊上傳電腦中的圖片相片</span>
+                                    <input type="file" accept="image/*" @change="handleImageUpload" class="hidden">
+                                </label>
+                                <button v-if="activeCard.image" @click="activeCard.image = ''" class="px-3 bg-rose-900/60 hover:bg-rose-900 border border-rose-600 text-rose-200 text-xs font-bold rounded-xl transition" title="移除圖片">
+                                    <i class="fa-solid fa-trash mr-1"></i>清空圖片
+                                </button>
+                            </div>
+                            
+                            <!-- Sample image quick chooser -->
+                            <div class="flex items-center space-x-2 overflow-x-auto py-1">
+                                <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap">重置為預設圖:</span>
+                                <button @click="resetToDefaultZodiac" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-xs font-bold border border-gray-600 transition">
+                                    <i class="fa-solid fa-rotate-left mr-1"></i>套用預設圖
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CENTER PANEL: Single Card Live Senior Preview (4 Cols) -->
+            <section class="lg:col-span-4 bg-elderpanel rounded-2xl border border-gray-700 p-4 flex flex-col items-center justify-between shadow-xl min-h-[580px]">
+                
+                <div class="w-full flex justify-between items-center border-b border-gray-700 pb-2 mb-2">
+                    <span class="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-eye"></i> 卡牌即時預覽 (對角標明字與數)
+                    </span>
+                    <span class="text-xs text-gray-300 font-bold">撲克比例 1:1.4</span>
+                </div>
+
+                <!-- Dynamic Senior Card Component -->
+                <div class="flex-grow flex items-center justify-center my-3 w-full">
+                    
+                    <!-- THE CARD CONTAINER -->
+                    <div id="single-card-preview" 
+                         :class="['card-aspect w-[280px] sm:w-[310px] rounded-3xl p-3 relative flex flex-col justify-between overflow-hidden shadow-2xl transition-all border-4', 'theme-' + activeCard.theme]">
+                        
+                        <!-- Inner High Contrast Container -->
+                        <div class="w-full h-full bg-slate-950/90 rounded-2xl p-3 flex flex-col justify-between relative z-10 border-2 border-white/40">
+                            
+                            <!-- TOP ROW: Left=Zodiac Name, Right=Number Badge -->
+                            <div class="flex justify-between items-center bg-white text-slate-950 rounded-xl p-2 shadow-md">
+                                <!-- Top-Left: Zodiac Name (Extra Large Text) -->
+                                <span class="text-3xl font-black tracking-tight text-slate-950 pl-1">{{ activeCard.name || '生肖' }}</span>
+                                
+                                <!-- Top-Right: Number Badge -->
+                                <div class="w-12 h-12 rounded-xl bg-amber-400 border-2 border-slate-950 text-slate-950 font-black text-2xl flex items-center justify-center shadow-md">
+                                    {{ activeCard.number }}
+                                </div>
+                            </div>
+
+                            <!-- Central Artwork Container (Expanded) -->
+                            <div class="my-2 flex-grow rounded-xl overflow-hidden border-2 border-white/30 bg-slate-900 relative flex items-center justify-center shadow-inner min-h-[180px]">
+                                <img v-if="activeCard.image" :src="activeCard.image" class="w-full h-full object-cover">
+                                <div v-else class="text-center p-4 text-gray-400">
+                                    <i class="fa-solid fa-paw text-5xl mb-2 text-amber-400 block"></i>
+                                    <span class="text-xs font-bold">尚未設定圖案</span>
+                                </div>
+                            </div>
+
+                            <!-- BOTTOM ROW: Left=Number Badge, Right=Zodiac Name -->
+                            <div class="flex justify-between items-center bg-white text-slate-950 rounded-xl p-2 shadow-md">
+                                <!-- Bottom-Left: Number Badge -->
+                                <div class="w-12 h-12 rounded-xl bg-amber-400 border-2 border-slate-950 text-slate-950 font-black text-2xl flex items-center justify-center shadow-md">
+                                    {{ activeCard.number }}
+                                </div>
+
+                                <!-- Bottom-Right: Zodiac Name (Extra Large Text) -->
+                                <span class="text-3xl font-black tracking-tight text-slate-950 pr-1">{{ activeCard.name || '生肖' }}</span>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- RIGHT PANEL: Current Set 13-Card Grid Overview (3 Cols) -->
+            <section class="lg:col-span-3 bg-elderpanel rounded-2xl border border-gray-700 p-4 flex flex-col justify-between shadow-xl">
+                <div>
+                    <div class="flex items-center justify-between border-b border-gray-700 pb-2 mb-3">
+                        <h2 class="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-grid-2"></i>
+                            第 {{ currentSetIndex + 1 }} 組 (13張生肖卡) 全覽
+                        </h2>
+                        <span class="text-xs text-gray-300 font-bold">13 張</span>
+                    </div>
+
+                    <!-- 13 Mini Preview Grid -->
+                    <div class="grid grid-cols-3 gap-2 max-h-[550px] overflow-y-auto custom-scrollbar p-1">
+                        <div v-for="(card, idx) in currentSet" :key="idx"
+                             @click="currentCardIndex = idx"
+                             :class="['card-aspect rounded-xl p-1 relative flex flex-col justify-between cursor-pointer transition border-2 overflow-hidden hover:scale-105',
+                                      'theme-' + card.theme,
+                                      currentCardIndex === idx ? 'ring-4 ring-amber-300 border-white scale-105' : 'opacity-85 hover:opacity-100']">
+                            
+                            <div class="w-full h-full bg-slate-950/90 rounded-lg p-1 flex flex-col justify-between">
+                                <!-- Top Bar -->
+                                <div class="flex justify-between items-center text-[11px] font-black text-white px-0.5">
+                                    <span class="truncate">{{ card.name }}</span>
+                                    <span class="text-amber-400 font-black">#{{ card.number }}</span>
+                                </div>
+
+                                <!-- Image Thumb -->
+                                <div class="my-0.5 flex-grow bg-slate-900 rounded overflow-hidden flex items-center justify-center">
+                                    <img v-if="card.image" :src="card.image" class="w-full h-full object-cover">
+                                    <i v-else class="fa-solid fa-paw text-gray-600 text-xs"></i>
+                                </div>
+
+                                <!-- Bottom Bar -->
+                                <div class="flex justify-between items-center text-[11px] font-black text-white px-0.5">
+                                    <span class="text-amber-400 font-black">#{{ card.number }}</span>
+                                    <span class="truncate">{{ card.name }}</span>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- PRINT PREVIEW OVERLAY / DISPLAY (A4 layout: 9 cards per page, 3x3 grid) -->
+        <div id="print-area" class="hidden print-only p-4 bg-white min-h-screen text-slate-950">
+            <div v-for="(page, pIndex) in printPages" :key="pIndex" class="mb-6 page-break flex flex-col justify-between" style="min-height: 270mm;">
+                <div class="flex justify-between items-center border-b-2 border-slate-900 pb-1 mb-2">
+                    <h2 class="text-base font-black text-slate-900">
+                        第 {{ page.setNum }} 組卡牌（頁次 {{ page.pageNum }} / {{ page.totalPages }}）
+                    </h2>
+                    <span class="text-xs font-bold text-slate-600">長輩生肖卡 · 每頁 A4 排版 9 張卡片 (3x3)</span>
+                </div>
+                
+                <!-- 3x3 Grid Layout for 9 Cards per A4 Page -->
+                <div class="grid grid-cols-3 gap-3 flex-grow items-center justify-items-center" style="grid-template-rows: repeat(3, 1fr);">
+                    <div v-for="(card, cIndex) in page.cards" :key="cIndex" 
+                         :class="['card-aspect w-[58mm] h-[81mm] rounded-2xl p-1.5 relative flex flex-col justify-between overflow-hidden border-2 border-slate-900 shadow-sm', 'theme-' + card.theme]">
+                        <div class="w-full h-full bg-slate-950 rounded-xl p-1.5 flex flex-col justify-between text-slate-950">
+                            
+                            <!-- Top Bar -->
+                            <div class="flex justify-between items-center bg-white p-1 rounded-lg shadow">
+                                <span class="font-black text-base pl-0.5">{{ card.name }}</span>
+                                <span class="w-6 h-6 rounded bg-amber-400 text-slate-950 font-black text-center text-xs flex items-center justify-center border border-slate-900">{{ card.number }}</span>
+                            </div>
+
+                            <!-- Image -->
+                            <div class="my-1 flex-grow rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center border border-white/20 min-h-0">
+                                <img v-if="card.image" :src="card.image" class="w-full h-full object-cover">
+                            </div>
+
+                            <!-- Bottom Bar -->
+                            <div class="flex justify-between items-center bg-white p-1 rounded-lg shadow">
+                                <span class="w-6 h-6 rounded bg-amber-400 text-slate-950 font-black text-center text-xs flex items-center justify-center border border-slate-900">{{ card.number }}</span>
+                                <span class="font-black text-base pr-0.5">{{ card.name }}</span>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed } = Vue;
+
+        createApp({
+            setup() {
+                // Pre-defined 13 zodiac cute SVG vector illustrations
+                const defaultZodiacData = [
+                    { 
+                        name: '鼠', 
+                        number: 1, 
+                        theme: 'red', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fef2f2" rx="20"/><circle cx="55" cy="65" r="32" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="6"/><circle cx="145" cy="65" r="32" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="6"/><circle cx="55" cy="65" r="20" fill="%23fbcfe8"/><circle cx="145" cy="65" r="20" fill="%23fbcfe8"/><ellipse cx="100" cy="115" rx="65" ry="55" fill="%23c4a493" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="60" cy="125" rx="12" ry="7" fill="%23f472b6" opacity="0.8"/><ellipse cx="140" cy="125" rx="12" ry="7" fill="%23f472b6" opacity="0.8"/><circle cx="72" cy="112" r="7" fill="%23291a18"/><circle cx="128" cy="112" r="7" fill="%23291a18"/><path d="M 94 120 Q 100 124 106 120 M 100 120 L 100 126 Q 95 132 90 128 M 100 126 Q 105 132 110 128" fill="none" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><line x1="30" y1="110" x2="48" y2="114" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><line x1="28" y1="125" x2="48" y2="124" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><line x1="170" y1="110" x2="152" y2="114" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><line x1="172" y1="125" x2="152" y2="124" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/></svg>` 
+                    },
+                    { 
+                        name: '牛', 
+                        number: 2, 
+                        theme: 'gold', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fffbe1" rx="20"/><path d="M 45 85 C 20 50 40 25 65 50 Z" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><path d="M 155 85 C 180 50 160 25 135 50 Z" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><ellipse cx="40" cy="100" rx="22" ry="12" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="160" cy="100" rx="22" ry="12" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="5"/><path d="M 50 80 Q 100 65 150 80 Q 160 145 100 155 Q 40 145 50 80 Z" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><ellipse cx="100" cy="128" rx="35" ry="22" fill="%23fbcfe8" stroke="%234a2e2b" stroke-width="5"/><circle cx="88" cy="128" r="3.5" fill="%234a2e2b"/><circle cx="112" cy="128" r="3.5" fill="%234a2e2b"/><circle cx="70" cy="98" r="7" fill="%23291a18"/><circle cx="130" cy="98" r="7" fill="%23291a18"/><ellipse cx="55" cy="110" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="145" cy="110" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '虎', 
+                        number: 3, 
+                        theme: 'green', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fefce8" rx="20"/><circle cx="55" cy="60" r="26" fill="%23facc15" stroke="%234a2e2b" stroke-width="6"/><circle cx="145" cy="60" r="26" fill="%23facc15" stroke="%234a2e2b" stroke-width="6"/><circle cx="55" cy="60" r="14" fill="%23ffffff"/><circle cx="145" cy="60" r="14" fill="%23ffffff"/><ellipse cx="100" cy="115" rx="65" ry="55" fill="%23facc15" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="100" cy="130" rx="42" ry="32" fill="%23ffffff"/><path d="M 85 70 L 115 70 M 100 70 L 100 85 M 88 80 L 112 80" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><path d="M 38 105 L 50 108 M 38 118 L 52 118" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><path d="M 162 105 L 150 108 M 162 118 L 148 118" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><circle cx="70" cy="110" r="7" fill="%23291a18"/><circle cx="130" cy="110" r="7" fill="%23291a18"/><path d="M 94 120 Q 100 124 106 120 M 100 120 L 100 126 Q 95 131 90 128 M 100 126 Q 105 131 110 128" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><ellipse cx="58" cy="120" rx="10" ry="6" fill="%23f97316" opacity="0.8"/><ellipse cx="142" cy="120" rx="10" ry="6" fill="%23f97316" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '兔', 
+                        number: 4, 
+                        theme: 'blue', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f0fdf4" rx="20"/><ellipse cx="70" cy="60" rx="18" ry="45" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="130" cy="60" rx="18" ry="45" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="70" cy="60" rx="10" ry="30" fill="%23fbcfe8"/><ellipse cx="130" cy="60" rx="10" ry="30" fill="%23fbcfe8"/><ellipse cx="100" cy="125" rx="60" ry="50" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="60" cy="132" rx="12" ry="7" fill="%23f472b6" opacity="0.8"/><ellipse cx="140" cy="132" rx="12" ry="7" fill="%23f472b6" opacity="0.8"/><circle cx="72" cy="120" r="7" fill="%23291a18"/><circle cx="128" cy="120" r="7" fill="%23291a18"/><path d="M 95 128 Q 100 133 105 128" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><line x1="32" y1="120" x2="48" y2="122" stroke="%234a2e2b" stroke-width="4"/><line x1="32" y1="130" x2="48" y2="128" stroke="%234a2e2b" stroke-width="4"/><line x1="168" y1="120" x2="152" y2="122" stroke="%234a2e2b" stroke-width="4"/><line x1="168" y1="130" x2="152" y2="128" stroke="%234a2e2b" stroke-width="4"/></svg>` 
+                    },
+                    { 
+                        name: '龍', 
+                        number: 5, 
+                        theme: 'purple', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fef2f2" rx="20"/><path d="M 60 65 L 45 35 L 65 48 L 75 28 L 82 58 Z" fill="%23facc15" stroke="%234a2e2b" stroke-width="5" stroke-linejoin="round"/><path d="M 140 65 L 155 35 L 135 48 L 125 28 L 118 58 Z" fill="%23facc15" stroke="%234a2e2b" stroke-width="5" stroke-linejoin="round"/><path d="M 50 90 Q 100 70 150 90 Q 160 150 100 160 Q 40 150 50 90 Z" fill="%23ef4444" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><path d="M 85 70 Q 100 50 115 70 Z" fill="%23facc15" stroke="%234a2e2b" stroke-width="4"/><path d="M 50 135 Q 25 150 35 165" fill="none" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><path d="M 150 135 Q 175 150 165 165" fill="none" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><circle cx="72" cy="110" r="7" fill="%23291a18"/><circle cx="128" cy="110" r="7" fill="%23291a18"/><circle cx="92" cy="132" r="3.5" fill="%234a2e2b"/><circle cx="108" cy="132" r="3.5" fill="%234a2e2b"/><ellipse cx="58" cy="122" rx="10" ry="6" fill="%23fca5a5" opacity="0.8"/><ellipse cx="142" cy="122" rx="10" ry="6" fill="%23fca5a5" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '蛇', 
+                        number: 6, 
+                        theme: 'red', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f0fdf4" rx="20"/><path d="M 50 100 Q 100 40 150 100 Q 150 150 100 155 Q 50 150 50 100 Z" fill="%234ade80" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><path d="M 60 115 Q 100 100 140 115 Q 135 145 100 148 Q 65 145 60 115 Z" fill="%23bbf7d0"/><path d="M 100 150 L 100 168 M 100 168 L 93 175 M 100 168 L 107 175" fill="none" stroke="%23ef4444" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="72" cy="98" r="7" fill="%23291a18"/><circle cx="128" cy="98" r="7" fill="%23291a18"/><circle cx="92" cy="125" r="3" fill="%234a2e2b"/><circle cx="108" cy="125" r="3" fill="%234a2e2b"/><ellipse cx="58" cy="110" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="110" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '馬', 
+                        number: 7, 
+                        theme: 'gold', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fff7ed" rx="20"/><path d="M 50 70 C 40 30 65 30 70 65 Z" fill="%23c2410c" stroke="%234a2e2b" stroke-width="5"/><path d="M 150 70 C 160 30 135 30 130 65 Z" fill="%23c2410c" stroke="%234a2e2b" stroke-width="5"/><path d="M 55 75 Q 100 65 145 75 Q 150 145 100 155 Q 50 145 55 75 Z" fill="%23ea580c" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><path d="M 75 62 C 85 40 115 40 125 62 C 110 50 90 50 75 62 Z" fill="%234a2e2b"/><ellipse cx="100" cy="132" rx="30" ry="18" fill="%23fdba74"/><circle cx="90" cy="132" r="3.5" fill="%234a2e2b"/><circle cx="110" cy="132" r="3.5" fill="%234a2e2b"/><circle cx="72" cy="98" r="7" fill="%23291a18"/><circle cx="128" cy="98" r="7" fill="%23291a18"/><ellipse cx="58" cy="112" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="112" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '羊', 
+                        number: 8, 
+                        theme: 'green', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f0fdf4" rx="20"/><path d="M 55 70 C 20 40 30 90 50 85" fill="none" stroke="%23facc15" stroke-width="12" stroke-linecap="round"/><path d="M 145 70 C 180 40 170 90 150 85" fill="none" stroke="%23facc15" stroke-width="12" stroke-linecap="round"/><ellipse cx="100" cy="115" rx="55" ry="48" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="40" cy="105" rx="18" ry="10" fill="%23ffffff" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="160" cy="105" rx="18" ry="10" fill="%23ffffff" stroke="%234a2e2b" stroke-width="5"/><path d="M 75 75 Q 85 60 100 65 Q 115 60 125 75 Q 100 70 75 75 Z" fill="%23ffffff" stroke="%234a2e2b" stroke-width="5"/><circle cx="72" cy="110" r="7" fill="%23291a18"/><circle cx="128" cy="110" r="7" fill="%23291a18"/><path d="M 94 122 Q 100 126 106 122 M 100 122 L 100 127" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><ellipse cx="58" cy="120" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="120" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '猴', 
+                        number: 9, 
+                        theme: 'blue', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fefce8" rx="20"/><circle cx="45" cy="105" r="22" fill="%2378350f" stroke="%234a2e2b" stroke-width="5"/><circle cx="155" cy="105" r="22" fill="%2378350f" stroke="%234a2e2b" stroke-width="5"/><circle cx="45" cy="105" r="12" fill="%23fbcfe8"/><circle cx="155" cy="105" r="12" fill="%23fbcfe8"/><ellipse cx="100" cy="105" rx="58" ry="50" fill="%2378350f" stroke="%234a2e2b" stroke-width="6"/><path d="M 100 85 C 70 65 55 95 70 125 C 85 140 115 140 130 125 C 145 95 130 65 100 85 Z" fill="%23fed7aa"/><circle cx="78" cy="98" r="7" fill="%23291a18"/><circle cx="122" cy="98" r="7" fill="%23291a18"/><ellipse cx="100" cy="112" rx="4" ry="3" fill="%234a2e2b"/><path d="M 92 122 Q 100 128 108 122" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><ellipse cx="65" cy="112" rx="9" ry="5" fill="%23f472b6" opacity="0.8"/><ellipse cx="135" cy="112" rx="9" ry="5" fill="%23f472b6" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '雞', 
+                        number: 10, 
+                        theme: 'purple', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fef2f2" rx="20"/><path d="M 80 60 C 70 30 90 35 100 45 C 110 30 130 35 120 60 Z" fill="%23ef4444" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="100" cy="115" rx="55" ry="48" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><path d="M 88 115 L 112 115 L 100 132 Z" fill="%23facc15" stroke="%234a2e2b" stroke-width="4" stroke-linejoin="round"/><path d="M 95 132 Q 100 145 105 132 Z" fill="%23ef4444"/><circle cx="72" cy="105" r="7" fill="%23291a18"/><circle cx="128" cy="105" r="7" fill="%23291a18"/><ellipse cx="58" cy="115" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="115" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '狗', 
+                        number: 11, 
+                        theme: 'red', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fff7ed" rx="20"/><ellipse cx="45" cy="105" rx="16" ry="32" fill="%239a3412" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="155" cy="105" rx="16" ry="32" fill="%239a3412" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="100" cy="110" rx="55" ry="48" fill="%23ea580c" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="100" cy="122" rx="26" ry="18" fill="%23ffedd5"/><ellipse cx="100" cy="114" rx="7" ry="5" fill="%23291a18"/><path d="M 94 124 Q 100 128 106 124" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><circle cx="72" cy="100" r="7" fill="%23291a18"/><circle cx="128" cy="100" r="7" fill="%23291a18"/><ellipse cx="58" cy="112" rx="9" ry="5" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="112" rx="9" ry="5" fill="%23f472b6" opacity="0.8"/></svg>` 
+                    },
+                    { 
+                        name: '豬', 
+                        number: 12, 
+                        theme: 'gold', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fdf2f8" rx="20"/><polygon points="45,70 70,55 60,90" fill="%23f472b6" stroke="%234a2e2b" stroke-width="5" stroke-linejoin="round"/><polygon points="155,70 130,55 140,90" fill="%23f472b6" stroke="%234a2e2b" stroke-width="5" stroke-linejoin="round"/><ellipse cx="100" cy="115" rx="60" ry="50" fill="%23fbcfe8" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="100" cy="122" rx="22" ry="15" fill="%23f472b6" stroke="%234a2e2b" stroke-width="4"/><circle cx="92" cy="122" r="3.5" fill="%234a2e2b"/><circle cx="108" cy="122" r="3.5" fill="%234a2e2b"/><circle cx="72" cy="105" r="7" fill="%23291a18"/><circle cx="128" cy="105" r="7" fill="%23291a18"/><ellipse cx="55" cy="118" rx="10" ry="6" fill="%23f43f5e" opacity="0.6"/><ellipse cx="145" cy="118" rx="10" ry="6" fill="%23f43f5e" opacity="0.6"/></svg>` 
+                    },
+                    { 
+                        name: '福', 
+                        number: 13, 
+                        theme: 'red', 
+                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fef2f2" rx="20"/><polygon points="100,20 180,100 100,180 20,100" fill="%23dc2626" stroke="%23facc15" stroke-width="8"/><polygon points="100,28 172,100 100,172 28,100" fill="none" stroke="%23ffffff" stroke-width="3" stroke-dasharray="6,4"/><text x="100" y="125" font-family="'Noto Sans TC', sans-serif" font-weight="900" font-size="72" fill="%23facc15" text-anchor="middle" stroke="%2378350f" stroke-width="2">福</text></svg>` 
+                    }
+                ];
+
+                const createDefaultSet = (setNumber) => {
+                    return defaultZodiacData.map((item, index) => ({
+                        id: `S${setNumber}-C${index + 1}`,
+                        name: item.name,
+                        number: item.number,
+                        theme: item.theme,
+                        image: item.img
+                    }));
+                };
+
+                const sets = ref([ createDefaultSet(1) ]);
+                const currentSetIndex = ref(0);
+                const currentCardIndex = ref(0);
+                const isGeneratingPdf = ref(false);
+
+                const currentSet = computed(() => sets.value[currentSetIndex.value] || sets.value[0]);
+                const activeCard = computed(() => currentSet.value[currentCardIndex.value] || currentSet.value[0]);
+
+                // Chunk cards into pages of 9 cards per page for A4 (3x3 layout)
+                const printPages = computed(() => {
+                    const pages = [];
+                    sets.value.forEach((set, setIdx) => {
+                        const totalPages = Math.ceil(set.length / 9);
+                        for (let i = 0; i < set.length; i += 9) {
+                            pages.push({
+                                setNum: setIdx + 1,
+                                pageNum: Math.floor(i / 9) + 1,
+                                totalPages: totalPages,
+                                cards: set.slice(i, i + 9)
+                            });
+                        }
+                    });
+                    return pages;
+                });
+
+                const changeSetCount = (delta) => {
+                    if (delta > 0) {
+                        const newSetNum = sets.value.length + 1;
+                        sets.value.push(createDefaultSet(newSetNum));
+                    } else if (delta < 0 && sets.value.length > 1) {
+                        sets.value.pop();
+                        if (currentSetIndex.value >= sets.value.length) {
+                            currentSetIndex.value = sets.value.length - 1;
+                        }
+                    }
+                };
+
+                const resetToDefaultZodiac = () => {
+                    const defaultItem = defaultZodiacData[currentCardIndex.value];
+                    if (defaultItem && activeCard.value) {
+                        activeCard.value.name = defaultItem.name;
+                        activeCard.value.number = defaultItem.number;
+                        activeCard.value.theme = defaultItem.theme;
+                        activeCard.value.image = defaultItem.img;
+                    }
+                };
+
+                const handleImageUpload = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            if (activeCard.value) {
+                                activeCard.value.image = event.target.result;
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+
+                const copyColorToSet = () => {
+                    const currentTheme = activeCard.value.theme;
+                    currentSet.value.forEach(card => {
+                        card.theme = currentTheme;
+                    });
+                };
+
+                const triggerPrint = () => {
+                    window.print();
+                };
+
+                const downloadPDF = async () => {
+                    if (isGeneratingPdf.value) return;
+                    isGeneratingPdf.value = true;
+
+                    try {
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+                        const printArea = document.getElementById('print-area');
+                        if (!printArea) return;
+
+                        // 暫時顯示列印區域以捕捉內容
+                        printArea.style.display = 'block';
+                        printArea.style.position = 'absolute';
+                        printArea.style.left = '-9999px';
+                        printArea.style.top = '0';
+                        printArea.style.width = '210mm';
+
+                        const pageElements = printArea.querySelectorAll('.page-break');
+
+                        for (let i = 0; i < pageElements.length; i++) {
+                            const pageEl = pageElements[i];
+                            const canvas = await html2canvas(pageEl, {
+                                scale: 2,
+                                useCORS: true,
+                                backgroundColor: '#ffffff'
+                            });
+
+                            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                            const imgProps = pdf.getImageProperties(imgData);
+                            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                            if (i > 0) {
+                                pdf.addPage();
+                            }
+
+                            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, pdfHeight));
+                        }
+
+                        // 恢復原狀
+                        printArea.style.display = '';
+                        printArea.style.position = '';
+                        printArea.style.left = '';
+                        printArea.style.top = '';
+                        printArea.style.width = '';
+
+                        pdf.save(`長輩生肖卡牌_${new Date().toISOString().slice(0, 10)}.pdf`);
+                    } catch (err) {
+                        console.error('PDF 生成失敗:', err);
+                    } finally {
+                        isGeneratingPdf.value = false;
+                    }
+                };
+
+                return {
+                    sets,
+                    currentSetIndex,
+                    currentCardIndex,
+                    isGeneratingPdf,
+                    currentSet,
+                    activeCard,
+                    printPages,
+                    changeSetCount,
+                    resetToDefaultZodiac,
+                    handleImageUpload,
+                    copyColorToSet,
+                    triggerPrint,
+                    downloadPDF
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
