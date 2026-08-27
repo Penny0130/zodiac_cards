@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 Global Build -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- html2canvas for card image download -->
+    <!-- html2canvas for card image capture -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- jsPDF for PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -25,8 +25,8 @@
                         sans: ['Noto Sans TC', 'sans-serif'],
                     },
                     colors: {
-                        elderbg: '#181920',
-                        elderpanel: '#222533',
+                        elderbg: '#121319',
+                        elderpanel: '#1e202e',
                     }
                 }
             }
@@ -41,12 +41,12 @@
             user-select: none;
         }
 
-        /* Senior High Contrast Card Styles */
+        /* Senior High Contrast Card Aspect Ratio */
         .card-aspect {
             aspect-ratio: 1 / 1.4;
         }
 
-        /* Color themes tailored for clear visual distinction */
+        /* Color themes for card borders */
         .theme-red {
             background: linear-gradient(135deg, #e11d48, #9f1239);
             border-color: #fecdd3;
@@ -76,6 +76,18 @@
             .print-only {
                 display: block !important;
             }
+            body.single-print-active #print-area {
+                display: none !important;
+            }
+            body.single-print-active #single-zodiac-print-area {
+                display: block !important;
+            }
+            body:not(.single-print-active) #single-zodiac-print-area {
+                display: none !important;
+            }
+            body:not(.single-print-active) #print-area {
+                display: block !important;
+            }
             body {
                 background: white !important;
                 color: black !important;
@@ -83,13 +95,6 @@
             .page-break {
                 page-break-after: always;
                 break-after: page;
-            }
-            .print-card-grid {
-                display: grid !important;
-                grid-template-columns: repeat(2, 1fr) !important;
-                grid-template-rows: repeat(2, 1fr) !important;
-                gap: 16px !important;
-                height: 260mm;
             }
         }
 
@@ -106,22 +111,22 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col bg-[#121319]">
     <div id="app" class="flex-grow flex flex-col">
         
         <!-- Header Bar -->
-        <header class="no-print bg-elderpanel border-b border-gray-700 px-4 py-3 sticky top-0 z-50 flex flex-wrap justify-between items-center shadow-md">
+        <header class="no-print bg-[#1e202e] border-b border-gray-700 px-4 py-3 sticky top-0 z-50 flex flex-wrap justify-between items-center shadow-md">
             <div class="flex items-center space-x-3 my-1">
                 <div class="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-black text-2xl shadow-md">
                     <i class="fa-solid fa-paw"></i>
                 </div>
                 <div>
                     <h1 class="text-xl font-black text-amber-400 tracking-wide">長輩簡易生肖卡牌生成器</h1>
-                    <p class="text-xs text-gray-300">大字體對角標註 · 每組 13 張 · 9張/頁(3x3)列印版</p>
+                    <p class="text-xs text-gray-300">大字體對角標註 · 每組 13 張 · A4 頁面 (3x3 / 9張排版)</p>
                 </div>
             </div>
 
-            <!-- Global Action Controls -->
+            <!-- Global Action Controls for Full Sets -->
             <div class="flex flex-wrap items-center gap-3 my-1">
                 <!-- Set selector / adder -->
                 <div class="bg-slate-900 rounded-xl p-1.5 border border-amber-500/40 flex items-center space-x-2">
@@ -137,17 +142,17 @@
                     </button>
                 </div>
 
-                <!-- Print Page trigger -->
-                <button @click="triggerPrint" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2">
+                <!-- Print Page trigger for ALL sets -->
+                <button @click="triggerPrintAll" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2">
                     <i class="fa-solid fa-print text-sm"></i>
-                    <span>預覽列印 A4</span>
+                    <span>預覽列印全組 (A4)</span>
                 </button>
 
-                <!-- Download PDF trigger -->
-                <button @click="downloadPDF" :disabled="isGeneratingPdf" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2 disabled:opacity-50">
+                <!-- Download PDF trigger for ALL sets -->
+                <button @click="downloadAllPDF" :disabled="isGeneratingPdf" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2 disabled:opacity-50">
                     <i v-if="!isGeneratingPdf" class="fa-solid fa-file-pdf text-sm"></i>
                     <i v-else class="fa-solid fa-spinner fa-spin text-sm"></i>
-                    <span>{{ isGeneratingPdf ? 'PDF 產生中...' : '下載卡牌 PDF' }}</span>
+                    <span>{{ isGeneratingPdf ? 'PDF 產生中...' : '下載整組卡牌 PDF' }}</span>
                 </button>
             </div>
         </header>
@@ -156,7 +161,7 @@
         <main class="no-print flex-grow grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 max-w-[1700px] w-full mx-auto">
             
             <!-- LEFT PANEL: Controls, Editing Form & Card Selection (5 Cols) -->
-            <section class="lg:col-span-5 bg-elderpanel rounded-2xl border border-gray-700 p-4 flex flex-col space-y-4 shadow-xl">
+            <section class="lg:col-span-5 bg-[#1e202e] rounded-2xl border border-gray-700 p-4 flex flex-col space-y-4 shadow-xl">
                 
                 <!-- Set Selector Tabs -->
                 <div class="space-y-2">
@@ -246,24 +251,16 @@
                         <!-- Image Upload section -->
                         <div class="col-span-2 space-y-2">
                             <label class="block text-xs font-bold text-gray-300">
-                                <i class="fa-solid fa-image text-amber-400 mr-1"></i>上傳圖片或更換圖檔
+                                <i class="fa-solid fa-image text-amber-400 mr-1"></i>自訂更換卡面圖檔 (可選)
                             </label>
                             <div class="flex gap-2">
                                 <label class="flex-grow bg-slate-900 border-2 border-dashed border-gray-600 hover:border-amber-400 rounded-xl px-3 py-2.5 text-xs font-bold text-amber-300 cursor-pointer transition flex items-center justify-center gap-2">
                                     <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
-                                    <span>點擊上傳電腦中的圖片相片</span>
+                                    <span>上傳電腦圖片替換</span>
                                     <input type="file" accept="image/*" @change="handleImageUpload" class="hidden">
                                 </label>
-                                <button v-if="activeCard.image" @click="activeCard.image = ''" class="px-3 bg-rose-900/60 hover:bg-rose-900 border border-rose-600 text-rose-200 text-xs font-bold rounded-xl transition" title="移除圖片">
-                                    <i class="fa-solid fa-trash mr-1"></i>清空圖片
-                                </button>
-                            </div>
-                            
-                            <!-- Sample image quick chooser -->
-                            <div class="flex items-center space-x-2 overflow-x-auto py-1">
-                                <span class="text-[11px] text-gray-400 font-bold whitespace-nowrap">重置為預設圖:</span>
-                                <button @click="resetToDefaultZodiac" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-xs font-bold border border-gray-600 transition">
-                                    <i class="fa-solid fa-rotate-left mr-1"></i>套用預設圖
+                                <button @click="resetToDefaultZodiac" class="px-3 bg-slate-800 hover:bg-slate-700 border border-amber-500/50 text-amber-300 text-xs font-bold rounded-xl transition" title="重置為預設生肖圖">
+                                    <i class="fa-solid fa-rotate-left mr-1"></i>恢復預設圖
                                 </button>
                             </div>
                         </div>
@@ -271,65 +268,73 @@
                 </div>
             </section>
 
-            <!-- CENTER PANEL: Single Card Live Senior Preview (4 Cols) -->
-            <section class="lg:col-span-4 bg-elderpanel rounded-2xl border border-gray-700 p-4 flex flex-col items-center justify-between shadow-xl min-h-[580px]">
+            <!-- CENTER PANEL: Single Card Live Senior Preview & Single Print Actions (4 Cols) -->
+            <section class="lg:col-span-4 bg-[#1e202e] rounded-2xl border border-gray-700 p-4 flex flex-col items-center justify-between shadow-xl min-h-[580px]">
                 
                 <div class="w-full flex justify-between items-center border-b border-gray-700 pb-2 mb-2">
                     <span class="text-xs font-black text-amber-400 flex items-center gap-1.5">
-                        <i class="fa-solid fa-eye"></i> 卡牌即時預覽 (對角標明字與數)
+                        <i class="fa-solid fa-eye"></i> 卡牌即時預覽 (對角無框數字)
                     </span>
                     <span class="text-xs text-gray-300 font-bold">撲克比例 1:1.4</span>
                 </div>
 
                 <!-- Dynamic Senior Card Component -->
                 <div class="flex-grow flex items-center justify-center my-3 w-full">
-                    
-                    <!-- THE CARD CONTAINER -->
                     <div id="single-card-preview" 
                          :class="['card-aspect w-[280px] sm:w-[310px] rounded-3xl p-3 relative flex flex-col justify-between overflow-hidden shadow-2xl transition-all border-4', 'theme-' + activeCard.theme]">
                         
-                        <!-- Inner High Contrast Container -->
-                        <div class="w-full h-full bg-slate-950/90 rounded-2xl p-3 flex flex-col justify-between relative z-10 border-2 border-white/40">
+                        <!-- Inner High Contrast Container (White Background) -->
+                        <div class="w-full h-full bg-white rounded-2xl p-3 flex flex-col justify-between relative z-10 border-2 border-slate-900/20 shadow-md">
                             
-                            <!-- TOP ROW: Left=Zodiac Name, Right=Number Badge -->
-                            <div class="flex justify-between items-center bg-white text-slate-950 rounded-xl p-2 shadow-md">
-                                <!-- Top-Left: Zodiac Name (Extra Large Text) -->
-                                <span class="text-3xl font-black tracking-tight text-slate-950 pl-1">{{ activeCard.name || '生肖' }}</span>
-                                
-                                <!-- Top-Right: Number Badge -->
-                                <div class="w-12 h-12 rounded-xl bg-amber-400 border-2 border-slate-950 text-slate-950 font-black text-2xl flex items-center justify-center shadow-md">
-                                    {{ activeCard.number }}
-                                </div>
+                            <!-- TOP ROW: Left=Zodiac Name, Right=Number -->
+                            <div class="flex justify-between items-center px-2 py-1">
+                                <span class="text-4xl font-black tracking-tight text-slate-900 drop-shadow-sm">{{ activeCard.name || '生肖' }}</span>
+                                <span class="text-4xl font-black text-rose-600 drop-shadow-sm">{{ activeCard.number }}</span>
                             </div>
 
-                            <!-- Central Artwork Container (Expanded) -->
-                            <div class="my-2 flex-grow rounded-xl overflow-hidden border-2 border-white/30 bg-slate-900 relative flex items-center justify-center shadow-inner min-h-[180px]">
-                                <img v-if="activeCard.image" :src="activeCard.image" class="w-full h-full object-cover">
+                            <!-- Central Artwork Container -->
+                            <div class="my-2 flex-grow rounded-xl overflow-hidden border-2 border-slate-200 bg-slate-50 relative flex items-center justify-center shadow-inner min-h-[180px]">
+                                <img v-if="activeCard.image" :src="activeCard.image" class="w-full h-full object-contain p-2">
                                 <div v-else class="text-center p-4 text-gray-400">
-                                    <i class="fa-solid fa-paw text-5xl mb-2 text-amber-400 block"></i>
+                                    <i class="fa-solid fa-paw text-5xl mb-2 text-amber-500 block"></i>
                                     <span class="text-xs font-bold">尚未設定圖案</span>
                                 </div>
                             </div>
 
-                            <!-- BOTTOM ROW: Left=Number Badge, Right=Zodiac Name -->
-                            <div class="flex justify-between items-center bg-white text-slate-950 rounded-xl p-2 shadow-md">
-                                <!-- Bottom-Left: Number Badge -->
-                                <div class="w-12 h-12 rounded-xl bg-amber-400 border-2 border-slate-950 text-slate-950 font-black text-2xl flex items-center justify-center shadow-md">
-                                    {{ activeCard.number }}
-                                </div>
-
-                                <!-- Bottom-Right: Zodiac Name (Extra Large Text) -->
-                                <span class="text-3xl font-black tracking-tight text-slate-950 pr-1">{{ activeCard.name || '生肖' }}</span>
+                            <!-- BOTTOM ROW: Left=Number, Right=Zodiac Name -->
+                            <div class="flex justify-between items-center px-2 py-1">
+                                <span class="text-4xl font-black text-rose-600 drop-shadow-sm">{{ activeCard.number }}</span>
+                                <span class="text-4xl font-black tracking-tight text-slate-900 drop-shadow-sm">{{ activeCard.name || '生肖' }}</span>
                             </div>
 
                         </div>
                     </div>
-
                 </div>
+
+                <!-- Single Zodiac Export & Print Actions -->
+                <div class="w-full bg-slate-950/80 p-3 rounded-xl border border-amber-500/30 space-y-2 mt-2">
+                    <div class="text-xs font-black text-amber-300 flex items-center justify-between">
+                        <span><i class="fa-solid fa-print mr-1"></i>獨立單一生肖生成排版（A4 滿版 9 張）:</span>
+                        <span class="text-[11px] text-gray-300 font-bold">目前生肖【{{ activeCard.name }}】</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button @click="triggerSinglePrint" class="py-2 px-3 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs shadow transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-print"></i>
+                            <span>預覽列印【{{ activeCard.name }}】(1頁9張)</span>
+                        </button>
+
+                        <button @click="downloadSinglePDF" :disabled="isGeneratingSinglePdf" class="py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow transition flex items-center justify-center gap-1.5 disabled:opacity-50">
+                            <i v-if="!isGeneratingSinglePdf" class="fa-solid fa-file-pdf"></i>
+                            <i v-else class="fa-solid fa-spinner fa-spin"></i>
+                            <span>{{ isGeneratingSinglePdf ? '產生中...' : `下載【${activeCard.name}】PDF (1頁9張)` }}</span>
+                        </button>
+                    </div>
+                </div>
+
             </section>
 
             <!-- RIGHT PANEL: Current Set 13-Card Grid Overview (3 Cols) -->
-            <section class="lg:col-span-3 bg-elderpanel rounded-2xl border border-gray-700 p-4 flex flex-col justify-between shadow-xl">
+            <section class="lg:col-span-3 bg-[#1e202e] rounded-2xl border border-gray-700 p-4 flex flex-col justify-between shadow-xl">
                 <div>
                     <div class="flex items-center justify-between border-b border-gray-700 pb-2 mb-3">
                         <h2 class="text-xs font-black text-amber-400 flex items-center gap-1.5">
@@ -347,23 +352,23 @@
                                       'theme-' + card.theme,
                                       currentCardIndex === idx ? 'ring-4 ring-amber-300 border-white scale-105' : 'opacity-85 hover:opacity-100']">
                             
-                            <div class="w-full h-full bg-slate-950/90 rounded-lg p-1 flex flex-col justify-between">
+                            <div class="w-full h-full bg-white rounded-lg p-1 flex flex-col justify-between">
                                 <!-- Top Bar -->
-                                <div class="flex justify-between items-center text-[11px] font-black text-white px-0.5">
-                                    <span class="truncate">{{ card.name }}</span>
-                                    <span class="text-amber-400 font-black">#{{ card.number }}</span>
+                                <div class="flex justify-between items-center text-[11px] font-black px-0.5">
+                                    <span class="truncate text-slate-900">{{ card.name }}</span>
+                                    <span class="text-rose-600 font-black">{{ card.number }}</span>
                                 </div>
 
                                 <!-- Image Thumb -->
-                                <div class="my-0.5 flex-grow bg-slate-900 rounded overflow-hidden flex items-center justify-center">
-                                    <img v-if="card.image" :src="card.image" class="w-full h-full object-cover">
-                                    <i v-else class="fa-solid fa-paw text-gray-600 text-xs"></i>
+                                <div class="my-0.5 flex-grow bg-slate-50 rounded overflow-hidden flex items-center justify-center border border-slate-200">
+                                    <img v-if="card.image" :src="card.image" class="w-full h-full object-contain p-0.5">
+                                    <i v-else class="fa-solid fa-paw text-gray-400 text-xs"></i>
                                 </div>
 
                                 <!-- Bottom Bar -->
-                                <div class="flex justify-between items-center text-[11px] font-black text-white px-0.5">
-                                    <span class="text-amber-400 font-black">#{{ card.number }}</span>
-                                    <span class="truncate">{{ card.name }}</span>
+                                <div class="flex justify-between items-center text-[11px] font-black px-0.5">
+                                    <span class="text-rose-600 font-black">{{ card.number }}</span>
+                                    <span class="truncate text-slate-900">{{ card.name }}</span>
                                 </div>
                             </div>
 
@@ -374,7 +379,7 @@
 
         </main>
 
-        <!-- PRINT PREVIEW OVERLAY / DISPLAY (A4 layout: 9 cards per page, 3x3 grid) -->
+        <!-- FULL SET PRINT PREVIEW OVERLAY / DISPLAY (A4 layout: 9 cards per page, 3x3 grid) -->
         <div id="print-area" class="hidden print-only p-4 bg-white min-h-screen text-slate-950">
             <div v-for="(page, pIndex) in printPages" :key="pIndex" class="mb-6 page-break flex flex-col justify-between" style="min-height: 270mm;">
                 <div class="flex justify-between items-center border-b-2 border-slate-900 pb-1 mb-2">
@@ -388,23 +393,62 @@
                 <div class="grid grid-cols-3 gap-3 flex-grow items-center justify-items-center" style="grid-template-rows: repeat(3, 1fr);">
                     <div v-for="(card, cIndex) in page.cards" :key="cIndex" 
                          :class="['card-aspect w-[58mm] h-[81mm] rounded-2xl p-1.5 relative flex flex-col justify-between overflow-hidden border-2 border-slate-900 shadow-sm', 'theme-' + card.theme]">
-                        <div class="w-full h-full bg-slate-950 rounded-xl p-1.5 flex flex-col justify-between text-slate-950">
+                        <div class="w-full h-full bg-white rounded-xl p-1.5 flex flex-col justify-between text-slate-900">
                             
                             <!-- Top Bar -->
-                            <div class="flex justify-between items-center bg-white p-1 rounded-lg shadow">
-                                <span class="font-black text-base pl-0.5">{{ card.name }}</span>
-                                <span class="w-6 h-6 rounded bg-amber-400 text-slate-950 font-black text-center text-xs flex items-center justify-center border border-slate-900">{{ card.number }}</span>
+                            <div class="flex justify-between items-center px-1">
+                                <span class="font-black text-xl pl-0.5 text-slate-900">{{ card.name }}</span>
+                                <span class="font-black text-xl pr-0.5 text-rose-600">{{ card.number }}</span>
                             </div>
 
                             <!-- Image -->
-                            <div class="my-1 flex-grow rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center border border-white/20 min-h-0">
-                                <img v-if="card.image" :src="card.image" class="w-full h-full object-cover">
+                            <div class="my-1 flex-grow rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-200 min-h-0">
+                                <img v-if="card.image" :src="card.image" class="w-full h-full object-contain p-1">
                             </div>
 
                             <!-- Bottom Bar -->
-                            <div class="flex justify-between items-center bg-white p-1 rounded-lg shadow">
-                                <span class="w-6 h-6 rounded bg-amber-400 text-slate-950 font-black text-center text-xs flex items-center justify-center border border-slate-900">{{ card.number }}</span>
-                                <span class="font-black text-base pr-0.5">{{ card.name }}</span>
+                            <div class="flex justify-between items-center px-1">
+                                <span class="font-black text-xl pl-0.5 text-rose-600">{{ card.number }}</span>
+                                <span class="font-black text-xl pr-0.5 text-slate-900">{{ card.name }}</span>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SINGLE ZODIAC PRINT AREA (A4: 9 cards of the SAME active card) -->
+        <div id="single-zodiac-print-area" class="hidden print-only p-4 bg-white min-h-screen text-slate-950">
+            <div class="mb-6 page-break flex flex-col justify-between" style="min-height: 270mm;">
+                <div class="flex justify-between items-center border-b-2 border-slate-900 pb-1 mb-2">
+                    <h2 class="text-base font-black text-slate-900">
+                        生肖【{{ activeCard?.name }}】單卡獨立列印版（全頁 9 張）
+                    </h2>
+                    <span class="text-xs font-bold text-slate-600">長輩生肖卡 · 單卡 A4 滿版 9 張 (3x3)</span>
+                </div>
+                
+                <!-- 3x3 Grid Layout for 9 Copies of Active Card -->
+                <div class="grid grid-cols-3 gap-3 flex-grow items-center justify-items-center" style="grid-template-rows: repeat(3, 1fr);">
+                    <div v-for="n in 9" :key="n" 
+                         :class="['card-aspect w-[58mm] h-[81mm] rounded-2xl p-1.5 relative flex flex-col justify-between overflow-hidden border-2 border-slate-900 shadow-sm', 'theme-' + activeCard?.theme]">
+                        <div class="w-full h-full bg-white rounded-xl p-1.5 flex flex-col justify-between text-slate-900">
+                            
+                            <!-- Top Bar -->
+                            <div class="flex justify-between items-center px-1">
+                                <span class="font-black text-xl pl-0.5 text-slate-900">{{ activeCard?.name }}</span>
+                                <span class="font-black text-xl pr-0.5 text-rose-600">{{ activeCard?.number }}</span>
+                            </div>
+
+                            <!-- Image -->
+                            <div class="my-1 flex-grow rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-200 min-h-0">
+                                <img v-if="activeCard?.image" :src="activeCard.image" class="w-full h-full object-contain p-1">
+                            </div>
+
+                            <!-- Bottom Bar -->
+                            <div class="flex justify-between items-center px-1">
+                                <span class="font-black text-xl pl-0.5 text-rose-600">{{ activeCard?.number }}</span>
+                                <span class="font-black text-xl pr-0.5 text-slate-900">{{ activeCard?.name }}</span>
                             </div>
 
                         </div>
@@ -416,89 +460,114 @@
     </div>
 
     <script>
-        const { createApp, ref, computed } = Vue;
+        const { createApp, ref, computed, nextTick } = Vue;
+
+        // Helper function to build clean Base64 Data URIs from SVG string
+        const buildSvgDataUri = (svgRaw) => {
+            if (!svgRaw) return '';
+            try {
+                const encoded = btoa(unescape(encodeURIComponent(svgRaw)));
+                return 'data:image/svg+xml;base64,' + encoded;
+            } catch (e) {
+                return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgRaw);
+            }
+        };
+
+        // Utility: Wait for all <img> tags inside an element to complete loading
+        const waitForImagesToLoad = (element) => {
+            if (!element) return Promise.resolve();
+            const images = Array.from(element.querySelectorAll('img'));
+            const promises = images.map(img => {
+                if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
+                return new Promise(resolve => {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                });
+            });
+            return Promise.all(promises);
+        };
 
         createApp({
             setup() {
-                // Pre-defined 13 zodiac cute SVG vector illustrations
+                // High Quality Vector SVG raw strings converted to Base64 matching user avatars
                 const defaultZodiacData = [
                     { 
                         name: '鼠', 
                         number: 1, 
                         theme: 'red', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fef2f2" rx="20"/><circle cx="55" cy="65" r="32" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="6"/><circle cx="145" cy="65" r="32" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="6"/><circle cx="55" cy="65" r="20" fill="%23fbcfe8"/><circle cx="145" cy="65" r="20" fill="%23fbcfe8"/><ellipse cx="100" cy="115" rx="65" ry="55" fill="%23c4a493" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="60" cy="125" rx="12" ry="7" fill="%23f472b6" opacity="0.8"/><ellipse cx="140" cy="125" rx="12" ry="7" fill="%23f472b6" opacity="0.8"/><circle cx="72" cy="112" r="7" fill="%23291a18"/><circle cx="128" cy="112" r="7" fill="%23291a18"/><path d="M 94 120 Q 100 124 106 120 M 100 120 L 100 126 Q 95 132 90 128 M 100 126 Q 105 132 110 128" fill="none" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><line x1="30" y1="110" x2="48" y2="114" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><line x1="28" y1="125" x2="48" y2="124" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><line x1="170" y1="110" x2="152" y2="114" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><line x1="172" y1="125" x2="152" y2="124" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fef2f2" rx="20"/><circle cx="50" cy="60" r="32" fill="#c4a493" stroke="#3a2219" stroke-width="6"/><circle cx="150" cy="60" r="32" fill="#c4a493" stroke="#3a2219" stroke-width="6"/><circle cx="50" cy="60" r="20" fill="#fbcfe8"/><circle cx="150" cy="60" r="20" fill="#fbcfe8"/><ellipse cx="100" cy="115" rx="65" ry="55" fill="#c4a493" stroke="#3a2219" stroke-width="6"/><ellipse cx="60" cy="125" rx="12" ry="7" fill="#f472b6" opacity="0.85"/><ellipse cx="140" cy="125" rx="12" ry="7" fill="#f472b6" opacity="0.85"/><circle cx="72" cy="110" r="7" fill="#291a18"/><circle cx="128" cy="110" r="7" fill="#291a18"/><path d="M 94 118 Q 100 123 106 118 M 100 118 L 100 124" fill="none" stroke="#3a2219" stroke-width="4.5" stroke-linecap="round"/><line x1="30" y1="110" x2="48" y2="114" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/><line x1="28" y1="125" x2="48" y2="124" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/><line x1="170" y1="110" x2="152" y2="114" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/><line x1="172" y1="125" x2="152" y2="124" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/></svg>`)
                     },
                     { 
                         name: '牛', 
                         number: 2, 
                         theme: 'gold', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fffbe1" rx="20"/><path d="M 45 85 C 20 50 40 25 65 50 Z" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><path d="M 155 85 C 180 50 160 25 135 50 Z" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><ellipse cx="40" cy="100" rx="22" ry="12" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="160" cy="100" rx="22" ry="12" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="5"/><path d="M 50 80 Q 100 65 150 80 Q 160 145 100 155 Q 40 145 50 80 Z" fill="%23a88b7d" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><ellipse cx="100" cy="128" rx="35" ry="22" fill="%23fbcfe8" stroke="%234a2e2b" stroke-width="5"/><circle cx="88" cy="128" r="3.5" fill="%234a2e2b"/><circle cx="112" cy="128" r="3.5" fill="%234a2e2b"/><circle cx="70" cy="98" r="7" fill="%23291a18"/><circle cx="130" cy="98" r="7" fill="%23291a18"/><ellipse cx="55" cy="110" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="145" cy="110" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fffbe1" rx="20"/><path d="M 45 80 C 20 45 40 20 65 45 Z" fill="#ffffff" stroke="#3a2219" stroke-width="6" stroke-linejoin="round"/><path d="M 155 80 C 180 45 160 20 135 45 Z" fill="#ffffff" stroke="#3a2219" stroke-width="6" stroke-linejoin="round"/><ellipse cx="38" cy="95" rx="20" ry="11" fill="#bfa393" stroke="#3a2219" stroke-width="5"/><ellipse cx="162" cy="95" rx="20" ry="11" fill="#bfa393" stroke="#3a2219" stroke-width="5"/><path d="M 50 80 Q 100 65 150 80 Q 160 145 100 155 Q 40 145 50 80 Z" fill="#bfa393" stroke="#3a2219" stroke-width="6" stroke-linejoin="round"/><ellipse cx="100" cy="128" rx="36" ry="22" fill="#fbcfe8" stroke="#3a2219" stroke-width="5"/><circle cx="88" cy="128" r="3.5" fill="#3a2219"/><circle cx="112" cy="128" r="3.5" fill="#3a2219"/><circle cx="70" cy="96" r="7" fill="#291a18"/><circle cx="130" cy="96" r="7" fill="#291a18"/><ellipse cx="55" cy="108" rx="10" ry="6" fill="#f472b6" opacity="0.85"/><ellipse cx="145" cy="108" rx="10" ry="6" fill="#f472b6" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '虎', 
                         number: 3, 
                         theme: 'green', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fefce8" rx="20"/><circle cx="55" cy="60" r="26" fill="%23facc15" stroke="%234a2e2b" stroke-width="6"/><circle cx="145" cy="60" r="26" fill="%23facc15" stroke="%234a2e2b" stroke-width="6"/><circle cx="55" cy="60" r="14" fill="%23ffffff"/><circle cx="145" cy="60" r="14" fill="%23ffffff"/><ellipse cx="100" cy="115" rx="65" ry="55" fill="%23facc15" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="100" cy="130" rx="42" ry="32" fill="%23ffffff"/><path d="M 85 70 L 115 70 M 100 70 L 100 85 M 88 80 L 112 80" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><path d="M 38 105 L 50 108 M 38 118 L 52 118" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><path d="M 162 105 L 150 108 M 162 118 L 148 118" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><circle cx="70" cy="110" r="7" fill="%23291a18"/><circle cx="130" cy="110" r="7" fill="%23291a18"/><path d="M 94 120 Q 100 124 106 120 M 100 120 L 100 126 Q 95 131 90 128 M 100 126 Q 105 131 110 128" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><ellipse cx="58" cy="120" rx="10" ry="6" fill="%23f97316" opacity="0.8"/><ellipse cx="142" cy="120" rx="10" ry="6" fill="%23f97316" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fefce8" rx="20"/><circle cx="52" cy="60" r="26" fill="#facc15" stroke="#3a2219" stroke-width="6"/><circle cx="148" cy="60" r="26" fill="#facc15" stroke="#3a2219" stroke-width="6"/><circle cx="52" cy="60" r="14" fill="#ffffff"/><circle cx="148" cy="60" r="14" fill="#ffffff"/><ellipse cx="100" cy="115" rx="65" ry="55" fill="#facc15" stroke="#3a2219" stroke-width="6"/><ellipse cx="100" cy="130" rx="42" ry="32" fill="#ffffff"/><path d="M 85 70 L 115 70 M 100 70 L 100 85 M 88 80 L 112 80" stroke="#3a2219" stroke-width="5" stroke-linecap="round"/><path d="M 38 105 L 50 108 M 38 118 L 52 118" stroke="#3a2219" stroke-width="5" stroke-linecap="round"/><path d="M 162 105 L 150 108 M 162 118 L 148 118" stroke="#3a2219" stroke-width="5" stroke-linecap="round"/><circle cx="70" cy="110" r="7" fill="#291a18"/><circle cx="130" cy="110" r="7" fill="#291a18"/><path d="M 94 120 Q 100 124 106 120 M 100 120 L 100 125" fill="none" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/><ellipse cx="58" cy="120" rx="10" ry="6" fill="#f97316" opacity="0.85"/><ellipse cx="142" cy="120" rx="10" ry="6" fill="#f97316" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '兔', 
                         number: 4, 
                         theme: 'blue', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f0fdf4" rx="20"/><ellipse cx="70" cy="60" rx="18" ry="45" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="130" cy="60" rx="18" ry="45" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="70" cy="60" rx="10" ry="30" fill="%23fbcfe8"/><ellipse cx="130" cy="60" rx="10" ry="30" fill="%23fbcfe8"/><ellipse cx="100" cy="125" rx="60" ry="50" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="60" cy="132" rx="12" ry="7" fill="%23f472b6" opacity="0.8"/><ellipse cx="140" cy="132" rx="12" ry="7" fill="%23f472b6" opacity="0.8"/><circle cx="72" cy="120" r="7" fill="%23291a18"/><circle cx="128" cy="120" r="7" fill="%23291a18"/><path d="M 95 128 Q 100 133 105 128" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><line x1="32" y1="120" x2="48" y2="122" stroke="%234a2e2b" stroke-width="4"/><line x1="32" y1="130" x2="48" y2="128" stroke="%234a2e2b" stroke-width="4"/><line x1="168" y1="120" x2="152" y2="122" stroke="%234a2e2b" stroke-width="4"/><line x1="168" y1="130" x2="152" y2="128" stroke="%234a2e2b" stroke-width="4"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#f0fdf4" rx="20"/><ellipse cx="68" cy="58" rx="18" ry="46" fill="#ffffff" stroke="#3a2219" stroke-width="6"/><ellipse cx="132" cy="58" rx="18" ry="46" fill="#ffffff" stroke="#3a2219" stroke-width="6"/><ellipse cx="68" cy="58" rx="10" ry="30" fill="#fbcfe8"/><ellipse cx="132" cy="58" rx="10" ry="30" fill="#fbcfe8"/><ellipse cx="100" cy="125" rx="60" ry="50" fill="#ffffff" stroke="#3a2219" stroke-width="6"/><ellipse cx="60" cy="132" rx="12" ry="7" fill="#f472b6" opacity="0.85"/><ellipse cx="140" cy="132" rx="12" ry="7" fill="#f472b6" opacity="0.85"/><circle cx="72" cy="120" r="7" fill="#291a18"/><circle cx="128" cy="120" r="7" fill="#291a18"/><path d="M 95 127 Q 100 132 105 127" fill="none" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/><line x1="32" y1="120" x2="48" y2="122" stroke="#3a2219" stroke-width="4"/><line x1="32" y1="130" x2="48" y2="128" stroke="#3a2219" stroke-width="4"/><line x1="168" y1="120" x2="152" y2="122" stroke="#3a2219" stroke-width="4"/><line x1="168" y1="130" x2="152" y2="128" stroke="#3a2219" stroke-width="4"/></svg>`)
                     },
                     { 
                         name: '龍', 
                         number: 5, 
                         theme: 'purple', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fef2f2" rx="20"/><path d="M 60 65 L 45 35 L 65 48 L 75 28 L 82 58 Z" fill="%23facc15" stroke="%234a2e2b" stroke-width="5" stroke-linejoin="round"/><path d="M 140 65 L 155 35 L 135 48 L 125 28 L 118 58 Z" fill="%23facc15" stroke="%234a2e2b" stroke-width="5" stroke-linejoin="round"/><path d="M 50 90 Q 100 70 150 90 Q 160 150 100 160 Q 40 150 50 90 Z" fill="%23ef4444" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><path d="M 85 70 Q 100 50 115 70 Z" fill="%23facc15" stroke="%234a2e2b" stroke-width="4"/><path d="M 50 135 Q 25 150 35 165" fill="none" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><path d="M 150 135 Q 175 150 165 165" fill="none" stroke="%234a2e2b" stroke-width="5" stroke-linecap="round"/><circle cx="72" cy="110" r="7" fill="%23291a18"/><circle cx="128" cy="110" r="7" fill="%23291a18"/><circle cx="92" cy="132" r="3.5" fill="%234a2e2b"/><circle cx="108" cy="132" r="3.5" fill="%234a2e2b"/><ellipse cx="58" cy="122" rx="10" ry="6" fill="%23fca5a5" opacity="0.8"/><ellipse cx="142" cy="122" rx="10" ry="6" fill="%23fca5a5" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fef2f2" rx="20"/><path d="M 60 65 L 45 35 L 65 48 L 75 28 L 82 58 Z" fill="#facc15" stroke="#3a2219" stroke-width="5" stroke-linejoin="round"/><path d="M 140 65 L 155 35 L 135 48 L 125 28 L 118 58 Z" fill="#facc15" stroke="#3a2219" stroke-width="5" stroke-linejoin="round"/><path d="M 50 90 Q 100 70 150 90 Q 160 150 100 160 Q 40 150 50 90 Z" fill="#ef4444" stroke="#3a2219" stroke-width="6" stroke-linejoin="round"/><path d="M 85 70 Q 100 50 115 70 Z" fill="#facc15" stroke="#3a2219" stroke-width="4"/><path d="M 50 135 Q 25 150 35 165" fill="none" stroke="#3a2219" stroke-width="5" stroke-linecap="round"/><path d="M 150 135 Q 175 150 165 165" fill="none" stroke="#3a2219" stroke-width="5" stroke-linecap="round"/><circle cx="72" cy="110" r="7" fill="#291a18"/><circle cx="128" cy="110" r="7" fill="#291a18"/><circle cx="92" cy="132" r="3.5" fill="#3a2219"/><circle cx="108" cy="132" r="3.5" fill="#3a2219"/><ellipse cx="58" cy="122" rx="10" ry="6" fill="#fca5a5" opacity="0.85"/><ellipse cx="142" cy="122" rx="10" ry="6" fill="#fca5a5" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '蛇', 
                         number: 6, 
                         theme: 'red', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f0fdf4" rx="20"/><path d="M 50 100 Q 100 40 150 100 Q 150 150 100 155 Q 50 150 50 100 Z" fill="%234ade80" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><path d="M 60 115 Q 100 100 140 115 Q 135 145 100 148 Q 65 145 60 115 Z" fill="%23bbf7d0"/><path d="M 100 150 L 100 168 M 100 168 L 93 175 M 100 168 L 107 175" fill="none" stroke="%23ef4444" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="72" cy="98" r="7" fill="%23291a18"/><circle cx="128" cy="98" r="7" fill="%23291a18"/><circle cx="92" cy="125" r="3" fill="%234a2e2b"/><circle cx="108" cy="125" r="3" fill="%234a2e2b"/><ellipse cx="58" cy="110" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="110" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#f0fdf4" rx="20"/><path d="M 50 100 Q 100 40 150 100 Q 150 150 100 155 Q 50 150 50 100 Z" fill="#4ade80" stroke="#3a2219" stroke-width="6" stroke-linejoin="round"/><path d="M 60 115 Q 100 100 140 115 Q 135 145 100 148 Q 65 145 60 115 Z" fill="#bbf7d0"/><path d="M 100 150 L 100 168 M 100 168 L 93 175 M 100 168 L 107 175" fill="none" stroke="#ef4444" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="72" cy="98" r="7" fill="#291a18"/><circle cx="128" cy="98" r="7" fill="#291a18"/><circle cx="92" cy="125" r="3" fill="#3a2219"/><circle cx="108" cy="125" r="3" fill="#3a2219"/><ellipse cx="58" cy="110" rx="10" ry="6" fill="#f472b6" opacity="0.85"/><ellipse cx="142" cy="110" rx="10" ry="6" fill="#f472b6" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '馬', 
                         number: 7, 
                         theme: 'gold', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fff7ed" rx="20"/><path d="M 50 70 C 40 30 65 30 70 65 Z" fill="%23c2410c" stroke="%234a2e2b" stroke-width="5"/><path d="M 150 70 C 160 30 135 30 130 65 Z" fill="%23c2410c" stroke="%234a2e2b" stroke-width="5"/><path d="M 55 75 Q 100 65 145 75 Q 150 145 100 155 Q 50 145 55 75 Z" fill="%23ea580c" stroke="%234a2e2b" stroke-width="6" stroke-linejoin="round"/><path d="M 75 62 C 85 40 115 40 125 62 C 110 50 90 50 75 62 Z" fill="%234a2e2b"/><ellipse cx="100" cy="132" rx="30" ry="18" fill="%23fdba74"/><circle cx="90" cy="132" r="3.5" fill="%234a2e2b"/><circle cx="110" cy="132" r="3.5" fill="%234a2e2b"/><circle cx="72" cy="98" r="7" fill="%23291a18"/><circle cx="128" cy="98" r="7" fill="%23291a18"/><ellipse cx="58" cy="112" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="112" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fff7ed" rx="20"/><path d="M 50 70 C 40 30 65 30 70 65 Z" fill="#c2410c" stroke="#3a2219" stroke-width="5"/><path d="M 150 70 C 160 30 135 30 130 65 Z" fill="#c2410c" stroke="#3a2219" stroke-width="5"/><path d="M 55 75 Q 100 65 145 75 Q 150 145 100 155 Q 50 145 55 75 Z" fill="#ea580c" stroke="#3a2219" stroke-width="6" stroke-linejoin="round"/><path d="M 75 62 C 85 40 115 40 125 62 C 110 50 90 50 75 62 Z" fill="#3a2219"/><ellipse cx="100" cy="132" rx="30" ry="18" fill="#fdba74"/><circle cx="90" cy="132" r="3.5" fill="#3a2219"/><circle cx="110" cy="132" r="3.5" fill="#3a2219"/><circle cx="72" cy="98" r="7" fill="#291a18"/><circle cx="128" cy="98" r="7" fill="#291a18"/><ellipse cx="58" cy="112" rx="10" ry="6" fill="#f472b6" opacity="0.85"/><ellipse cx="142" cy="112" rx="10" ry="6" fill="#f472b6" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '羊', 
                         number: 8, 
                         theme: 'green', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f0fdf4" rx="20"/><path d="M 55 70 C 20 40 30 90 50 85" fill="none" stroke="%23facc15" stroke-width="12" stroke-linecap="round"/><path d="M 145 70 C 180 40 170 90 150 85" fill="none" stroke="%23facc15" stroke-width="12" stroke-linecap="round"/><ellipse cx="100" cy="115" rx="55" ry="48" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="40" cy="105" rx="18" ry="10" fill="%23ffffff" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="160" cy="105" rx="18" ry="10" fill="%23ffffff" stroke="%234a2e2b" stroke-width="5"/><path d="M 75 75 Q 85 60 100 65 Q 115 60 125 75 Q 100 70 75 75 Z" fill="%23ffffff" stroke="%234a2e2b" stroke-width="5"/><circle cx="72" cy="110" r="7" fill="%23291a18"/><circle cx="128" cy="110" r="7" fill="%23291a18"/><path d="M 94 122 Q 100 126 106 122 M 100 122 L 100 127" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><ellipse cx="58" cy="120" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="120" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#f0fdf4" rx="20"/><path d="M 55 70 C 20 40 30 90 50 85" fill="none" stroke="#facc15" stroke-width="12" stroke-linecap="round"/><path d="M 145 70 C 180 40 170 90 150 85" fill="none" stroke="#facc15" stroke-width="12" stroke-linecap="round"/><ellipse cx="100" cy="115" rx="55" ry="48" fill="#ffffff" stroke="#3a2219" stroke-width="6"/><ellipse cx="40" cy="105" rx="18" ry="10" fill="#ffffff" stroke="#3a2219" stroke-width="5"/><ellipse cx="160" cy="105" rx="18" ry="10" fill="#ffffff" stroke="#3a2219" stroke-width="5"/><path d="M 75 75 Q 85 60 100 65 Q 115 60 125 75 Q 100 70 75 75 Z" fill="#ffffff" stroke="#3a2219" stroke-width="5"/><circle cx="72" cy="110" r="7" fill="#291a18"/><circle cx="128" cy="110" r="7" fill="#291a18"/><path d="M 94 122 Q 100 126 106 122 M 100 122 L 100 127" fill="none" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/><ellipse cx="58" cy="120" rx="10" ry="6" fill="#f472b6" opacity="0.85"/><ellipse cx="142" cy="120" rx="10" ry="6" fill="#f472b6" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '猴', 
                         number: 9, 
                         theme: 'blue', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fefce8" rx="20"/><circle cx="45" cy="105" r="22" fill="%2378350f" stroke="%234a2e2b" stroke-width="5"/><circle cx="155" cy="105" r="22" fill="%2378350f" stroke="%234a2e2b" stroke-width="5"/><circle cx="45" cy="105" r="12" fill="%23fbcfe8"/><circle cx="155" cy="105" r="12" fill="%23fbcfe8"/><ellipse cx="100" cy="105" rx="58" ry="50" fill="%2378350f" stroke="%234a2e2b" stroke-width="6"/><path d="M 100 85 C 70 65 55 95 70 125 C 85 140 115 140 130 125 C 145 95 130 65 100 85 Z" fill="%23fed7aa"/><circle cx="78" cy="98" r="7" fill="%23291a18"/><circle cx="122" cy="98" r="7" fill="%23291a18"/><ellipse cx="100" cy="112" rx="4" ry="3" fill="%234a2e2b"/><path d="M 92 122 Q 100 128 108 122" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><ellipse cx="65" cy="112" rx="9" ry="5" fill="%23f472b6" opacity="0.8"/><ellipse cx="135" cy="112" rx="9" ry="5" fill="%23f472b6" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fefce8" rx="20"/><circle cx="45" cy="105" r="22" fill="#78350f" stroke="#3a2219" stroke-width="5"/><circle cx="155" cy="105" r="22" fill="#78350f" stroke="#3a2219" stroke-width="5"/><circle cx="45" cy="105" r="12" fill="#fbcfe8"/><circle cx="155" cy="105" r="12" fill="#fbcfe8"/><ellipse cx="100" cy="105" rx="58" ry="50" fill="#78350f" stroke="#3a2219" stroke-width="6"/><path d="M 100 85 C 70 65 55 95 70 125 C 85 140 115 140 130 125 C 145 95 130 65 100 85 Z" fill="#fed7aa"/><circle cx="78" cy="98" r="7" fill="#291a18"/><circle cx="122" cy="98" r="7" fill="#291a18"/><ellipse cx="100" cy="112" rx="4" ry="3" fill="#3a2219"/><path d="M 92 122 Q 100 128 108 122" fill="none" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/><ellipse cx="65" cy="112" rx="9" ry="5" fill="#f472b6" opacity="0.85"/><ellipse cx="135" cy="112" rx="9" ry="5" fill="#f472b6" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '雞', 
                         number: 10, 
                         theme: 'purple', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fef2f2" rx="20"/><path d="M 80 60 C 70 30 90 35 100 45 C 110 30 130 35 120 60 Z" fill="%23ef4444" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="100" cy="115" rx="55" ry="48" fill="%23ffffff" stroke="%234a2e2b" stroke-width="6"/><path d="M 88 115 L 112 115 L 100 132 Z" fill="%23facc15" stroke="%234a2e2b" stroke-width="4" stroke-linejoin="round"/><path d="M 95 132 Q 100 145 105 132 Z" fill="%23ef4444"/><circle cx="72" cy="105" r="7" fill="%23291a18"/><circle cx="128" cy="105" r="7" fill="%23291a18"/><ellipse cx="58" cy="115" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="115" rx="10" ry="6" fill="%23f472b6" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fef2f2" rx="20"/><path d="M 80 60 C 70 30 90 35 100 45 C 110 30 130 35 120 60 Z" fill="#ef4444" stroke="#3a2219" stroke-width="5"/><ellipse cx="100" cy="115" rx="55" ry="48" fill="#ffffff" stroke="#3a2219" stroke-width="6"/><path d="M 88 115 L 112 115 L 100 132 Z" fill="#facc15" stroke="#3a2219" stroke-width="4" stroke-linejoin="round"/><path d="M 95 132 Q 100 145 105 132 Z" fill="#ef4444"/><circle cx="72" cy="105" r="7" fill="#291a18"/><circle cx="128" cy="105" r="7" fill="#291a18"/><ellipse cx="58" cy="115" rx="10" ry="6" fill="#f472b6" opacity="0.85"/><ellipse cx="142" cy="115" rx="10" ry="6" fill="#f472b6" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '狗', 
                         number: 11, 
                         theme: 'red', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fff7ed" rx="20"/><ellipse cx="45" cy="105" rx="16" ry="32" fill="%239a3412" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="155" cy="105" rx="16" ry="32" fill="%239a3412" stroke="%234a2e2b" stroke-width="5"/><ellipse cx="100" cy="110" rx="55" ry="48" fill="%23ea580c" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="100" cy="122" rx="26" ry="18" fill="%23ffedd5"/><ellipse cx="100" cy="114" rx="7" ry="5" fill="%23291a18"/><path d="M 94 124 Q 100 128 106 124" fill="none" stroke="%234a2e2b" stroke-width="4" stroke-linecap="round"/><circle cx="72" cy="100" r="7" fill="%23291a18"/><circle cx="128" cy="100" r="7" fill="%23291a18"/><ellipse cx="58" cy="112" rx="9" ry="5" fill="%23f472b6" opacity="0.8"/><ellipse cx="142" cy="112" rx="9" ry="5" fill="%23f472b6" opacity="0.8"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fff7ed" rx="20"/><ellipse cx="45" cy="105" rx="16" ry="32" fill="#9a3412" stroke="#3a2219" stroke-width="5"/><ellipse cx="155" cy="105" rx="16" ry="32" fill="#9a3412" stroke="#3a2219" stroke-width="5"/><ellipse cx="100" cy="110" rx="55" ry="48" fill="#ea580c" stroke="#3a2219" stroke-width="6"/><ellipse cx="100" cy="122" rx="26" ry="18" fill="#ffedd5"/><ellipse cx="100" cy="114" rx="7" ry="5" fill="#291a18"/><path d="M 94 124 Q 100 128 106 124" fill="none" stroke="#3a2219" stroke-width="4" stroke-linecap="round"/><circle cx="72" cy="100" r="7" fill="#291a18"/><circle cx="128" cy="100" r="7" fill="#291a18"/><ellipse cx="58" cy="112" rx="9" ry="5" fill="#f472b6" opacity="0.85"/><ellipse cx="142" cy="112" rx="9" ry="5" fill="#f472b6" opacity="0.85"/></svg>`)
                     },
                     { 
                         name: '豬', 
                         number: 12, 
                         theme: 'gold', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fdf2f8" rx="20"/><polygon points="45,70 70,55 60,90" fill="%23f472b6" stroke="%234a2e2b" stroke-width="5" stroke-linejoin="round"/><polygon points="155,70 130,55 140,90" fill="%23f472b6" stroke="%234a2e2b" stroke-width="5" stroke-linejoin="round"/><ellipse cx="100" cy="115" rx="60" ry="50" fill="%23fbcfe8" stroke="%234a2e2b" stroke-width="6"/><ellipse cx="100" cy="122" rx="22" ry="15" fill="%23f472b6" stroke="%234a2e2b" stroke-width="4"/><circle cx="92" cy="122" r="3.5" fill="%234a2e2b"/><circle cx="108" cy="122" r="3.5" fill="%234a2e2b"/><circle cx="72" cy="105" r="7" fill="%23291a18"/><circle cx="128" cy="105" r="7" fill="%23291a18"/><ellipse cx="55" cy="118" rx="10" ry="6" fill="%23f43f5e" opacity="0.6"/><ellipse cx="145" cy="118" rx="10" ry="6" fill="%23f43f5e" opacity="0.6"/></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fdf2f8" rx="20"/><polygon points="45,70 70,55 60,90" fill="#f472b6" stroke="#3a2219" stroke-width="5" stroke-linejoin="round"/><polygon points="155,70 130,55 140,90" fill="#f472b6" stroke="#3a2219" stroke-width="5" stroke-linejoin="round"/><ellipse cx="100" cy="115" rx="60" ry="50" fill="#fbcfe8" stroke="#3a2219" stroke-width="6"/><ellipse cx="100" cy="122" rx="22" ry="15" fill="#f472b6" stroke="#3a2219" stroke-width="4"/><circle cx="92" cy="122" r="3.5" fill="#3a2219"/><circle cx="108" cy="122" r="3.5" fill="#3a2219"/><circle cx="72" cy="105" r="7" fill="#291a18"/><circle cx="128" cy="105" r="7" fill="#291a18"/><ellipse cx="55" cy="118" rx="10" ry="6" fill="#f43f5e" opacity="0.65"/><ellipse cx="145" cy="118" rx="10" ry="6" fill="#f43f5e" opacity="0.65"/></svg>`)
                     },
                     { 
                         name: '福', 
                         number: 13, 
                         theme: 'red', 
-                        img: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23fef2f2" rx="20"/><polygon points="100,20 180,100 100,180 20,100" fill="%23dc2626" stroke="%23facc15" stroke-width="8"/><polygon points="100,28 172,100 100,172 28,100" fill="none" stroke="%23ffffff" stroke-width="3" stroke-dasharray="6,4"/><text x="100" y="125" font-family="'Noto Sans TC', sans-serif" font-weight="900" font-size="72" fill="%23facc15" text-anchor="middle" stroke="%2378350f" stroke-width="2">福</text></svg>` 
+                        img: buildSvgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fef2f2" rx="20"/><polygon points="100,20 180,100 100,180 20,100" fill="#dc2626" stroke="#facc15" stroke-width="8"/><polygon points="100,28 172,100 100,172 28,100" fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="6,4"/><text x="100" y="125" font-family="'Noto Sans TC', sans-serif" font-weight="900" font-size="72" fill="#facc15" text-anchor="middle" stroke="#78350f" stroke-width="2">福</text></svg>`)
                     }
                 ];
 
@@ -516,6 +585,7 @@
                 const currentSetIndex = ref(0);
                 const currentCardIndex = ref(0);
                 const isGeneratingPdf = ref(false);
+                const isGeneratingSinglePdf = ref(false);
 
                 const currentSet = computed(() => sets.value[currentSetIndex.value] || sets.value[0]);
                 const activeCard = computed(() => currentSet.value[currentCardIndex.value] || currentSet.value[0]);
@@ -579,11 +649,84 @@
                     });
                 };
 
-                const triggerPrint = () => {
+                // Print controls
+                const triggerPrintAll = async () => {
+                    document.body.classList.remove('single-print-active');
+                    await nextTick();
+                    const printArea = document.getElementById('print-area');
+                    if (printArea) {
+                        await waitForImagesToLoad(printArea);
+                    }
                     window.print();
                 };
 
-                const downloadPDF = async () => {
+                const triggerSinglePrint = async () => {
+                    document.body.classList.add('single-print-active');
+                    await nextTick();
+                    const singleArea = document.getElementById('single-zodiac-print-area');
+                    if (singleArea) {
+                        await waitForImagesToLoad(singleArea);
+                    }
+                    window.print();
+                };
+
+                // Single Zodiac 3x3 PDF Download
+                const downloadSinglePDF = async () => {
+                    if (isGeneratingSinglePdf.value) return;
+                    isGeneratingSinglePdf.value = true;
+
+                    try {
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+                        const singleArea = document.getElementById('single-zodiac-print-area');
+                        if (!singleArea) return;
+
+                        // Temporarily mount for html2canvas
+                        singleArea.style.display = 'block';
+                        singleArea.style.position = 'fixed';
+                        singleArea.style.left = '-9999px';
+                        singleArea.style.top = '0';
+                        singleArea.style.width = '210mm';
+
+                        await nextTick();
+                        await waitForImagesToLoad(singleArea);
+                        await new Promise(resolve => setTimeout(resolve, 200));
+
+                        const pageEl = singleArea.querySelector('.page-break');
+                        const canvas = await html2canvas(pageEl, {
+                            scale: 2,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#ffffff'
+                        });
+
+                        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                        const imgProps = pdf.getImageProperties(imgData);
+                        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, pdfHeight));
+
+                        // Restore styles
+                        singleArea.style.display = '';
+                        singleArea.style.position = '';
+                        singleArea.style.left = '';
+                        singleArea.style.top = '';
+                        singleArea.style.width = '';
+
+                        const name = activeCard.value?.name || '生肖卡';
+                        pdf.save(`生肖卡牌_${name}_3x3單卡滿版.pdf`);
+                    } catch (err) {
+                        console.error('單卡 PDF 生成失敗:', err);
+                    } finally {
+                        isGeneratingSinglePdf.value = false;
+                    }
+                };
+
+                // Full Set PDF Download
+                const downloadAllPDF = async () => {
                     if (isGeneratingPdf.value) return;
                     isGeneratingPdf.value = true;
 
@@ -596,12 +739,15 @@
                         const printArea = document.getElementById('print-area');
                         if (!printArea) return;
 
-                        // 暫時顯示列印區域以捕捉內容
                         printArea.style.display = 'block';
-                        printArea.style.position = 'absolute';
+                        printArea.style.position = 'fixed';
                         printArea.style.left = '-9999px';
                         printArea.style.top = '0';
                         printArea.style.width = '210mm';
+
+                        await nextTick();
+                        await waitForImagesToLoad(printArea);
+                        await new Promise(resolve => setTimeout(resolve, 250));
 
                         const pageElements = printArea.querySelectorAll('.page-break');
 
@@ -610,6 +756,7 @@
                             const canvas = await html2canvas(pageEl, {
                                 scale: 2,
                                 useCORS: true,
+                                allowTaint: true,
                                 backgroundColor: '#ffffff'
                             });
 
@@ -624,16 +771,15 @@
                             pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, pdfHeight));
                         }
 
-                        // 恢復原狀
                         printArea.style.display = '';
                         printArea.style.position = '';
                         printArea.style.left = '';
                         printArea.style.top = '';
                         printArea.style.width = '';
 
-                        pdf.save(`長輩生肖卡牌_${new Date().toISOString().slice(0, 10)}.pdf`);
+                        pdf.save(`長輩生肖卡牌_全套裝_${new Date().toISOString().slice(0, 10)}.pdf`);
                     } catch (err) {
-                        console.error('PDF 生成失敗:', err);
+                        console.error('全套 PDF 生成失敗:', err);
                     } finally {
                         isGeneratingPdf.value = false;
                     }
@@ -644,6 +790,7 @@
                     currentSetIndex,
                     currentCardIndex,
                     isGeneratingPdf,
+                    isGeneratingSinglePdf,
                     currentSet,
                     activeCard,
                     printPages,
@@ -651,8 +798,10 @@
                     resetToDefaultZodiac,
                     handleImageUpload,
                     copyColorToSet,
-                    triggerPrint,
-                    downloadPDF
+                    triggerPrintAll,
+                    triggerSinglePrint,
+                    downloadAllPDF,
+                    downloadSinglePDF
                 };
             }
         }).mount('#app');
